@@ -209,6 +209,16 @@
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
     };
 
+    const GR_MONTHS = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαΐ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'];
+    const formatDate = (ts) => {
+      const d = new Date(ts);
+      return `${d.getDate()} ${GR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    };
+    const formatTime = (ts) => {
+      const d = new Date(ts);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+
     // === SHOP PICKER ===
     function ShopPicker({ onSelect }) {
       return (
@@ -343,6 +353,7 @@
       const [phone, setPhone] = useState('');
       const [name, setName] = useState('');
       const [showPanel, setShowPanel] = useState(false);
+      const [selectedCustomerPhone, setSelectedCustomerPhone] = useState(null);
       const [panelPeriod, setPanelPeriod] = useState('month');
       const [showRedeem, setShowRedeem] = useState(false);
       const [flash, setFlash] = useState(null);
@@ -452,6 +463,55 @@
       const updateName = (n) => {
         setName(n);
         if (customer) saveCustomerInShop({ ...customers, [clean]: { ...customer, name: n } }, null);
+      };
+
+      // Delete entire customer + roll back their contributions in monthlyStats
+      const deleteCustomer = (p) => {
+        const c = customers[p];
+        if (!c) return;
+        const newCustomers = { ...customers };
+        delete newCustomers[p];
+        const newData = {
+          ...data,
+          shops: { ...data.shops, [shop.id]: newCustomers },
+          monthlyStats: { ...data.monthlyStats }
+        };
+        (c.visits || []).forEach(v => {
+          const mk = monthKey(v.date);
+          if (newData.monthlyStats[mk] && newData.monthlyStats[mk][shop.id]) {
+            newData.monthlyStats[mk] = { ...newData.monthlyStats[mk] };
+            newData.monthlyStats[mk][shop.id] = { ...newData.monthlyStats[mk][shop.id] };
+            if (v.type === 'purchase')   newData.monthlyStats[mk][shop.id].coffees = Math.max(0, newData.monthlyStats[mk][shop.id].coffees - 1);
+            if (v.type === 'redemption') newData.monthlyStats[mk][shop.id].free    = Math.max(0, newData.monthlyStats[mk][shop.id].free - 1);
+          }
+        });
+        save(newData);
+        if (clean === p) { setPhone(''); setName(''); }
+      };
+
+      // Delete a single visit at index, adjust totals + monthlyStats
+      const deleteVisit = (p, visitIndex) => {
+        const c = customers[p];
+        if (!c || !c.visits || !c.visits[visitIndex]) return;
+        const v = c.visits[visitIndex];
+        const newVisits = c.visits.filter((_, i) => i !== visitIndex);
+        const updated = { ...c, visits: newVisits };
+        if (v.type === 'purchase')   updated.totalCoffees = Math.max(0, c.totalCoffees - 1);
+        if (v.type === 'redemption') updated.freeCoffees  = Math.max(0, c.freeCoffees - 1);
+        const newCustomers = { ...customers, [p]: updated };
+        const newData = {
+          ...data,
+          shops: { ...data.shops, [shop.id]: newCustomers },
+          monthlyStats: { ...data.monthlyStats }
+        };
+        const mk = monthKey(v.date);
+        if (newData.monthlyStats[mk] && newData.monthlyStats[mk][shop.id]) {
+          newData.monthlyStats[mk] = { ...newData.monthlyStats[mk] };
+          newData.monthlyStats[mk][shop.id] = { ...newData.monthlyStats[mk][shop.id] };
+          if (v.type === 'purchase')   newData.monthlyStats[mk][shop.id].coffees = Math.max(0, newData.monthlyStats[mk][shop.id].coffees - 1);
+          if (v.type === 'redemption') newData.monthlyStats[mk][shop.id].free    = Math.max(0, newData.monthlyStats[mk][shop.id].free - 1);
+        }
+        save(newData);
       };
 
       // Customer's current month visits
@@ -619,8 +679,16 @@
             </div>
 
             {allCustomersList.length > 0 && (
-              <div className="text-center text-xs font-bold" style={{ color: 'rgba(0,0,0,0.5)' }}>
-                {allCustomersList.length} πελάτες στο κατάστημα
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowPanel(true)}
+                  className="py-2 px-4 rounded-full text-xs font-bold flex items-center gap-1.5"
+                  style={{ background: 'rgba(255,255,255,0.45)', color: '#1f1f1f', border: '2px solid rgba(0,0,0,0.15)' }}
+                >
+                  <Users size={14} strokeWidth={3} />
+                  {allCustomersList.length} πελάτες στο κατάστημα
+                  <ChevronRight size={14} strokeWidth={3} />
+                </button>
               </div>
             )}
 
@@ -674,7 +742,20 @@
             {/* Stats & Customers panel */}
             {showPanel && (
               <StatsPanel data={data} currentShop={shop} period={panelPeriod} setPeriod={setPanelPeriod}
-                onClose={() => setShowPanel(false)} onSelectCustomer={(p) => { setPhone(p); setShowPanel(false); }} />
+                onClose={() => setShowPanel(false)} onSelectCustomer={(p) => setSelectedCustomerPhone(p)} />
+            )}
+
+            {/* Customer detail panel */}
+            {selectedCustomerPhone && customers[selectedCustomerPhone] && (
+              <CustomerDetailPanel
+                phone={selectedCustomerPhone}
+                customer={customers[selectedCustomerPhone]}
+                shop={shop}
+                onClose={() => setSelectedCustomerPhone(null)}
+                onUse={() => { setPhone(selectedCustomerPhone); setSelectedCustomerPhone(null); setShowPanel(false); }}
+                onDelete={() => { deleteCustomer(selectedCustomerPhone); setSelectedCustomerPhone(null); }}
+                onDeleteVisit={(idx) => deleteVisit(selectedCustomerPhone, idx)}
+              />
             )}
           </div>
         </div>
@@ -839,6 +920,164 @@
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // === CUSTOMER DETAIL PANEL ===
+    function CustomerDetailPanel({ phone, customer, shop, onClose, onUse, onDelete, onDeleteVisit }) {
+      const [confirmDelete, setConfirmDelete] = useState(false);
+      const [confirmDeleteVisit, setConfirmDeleteVisit] = useState(null);
+
+      const sortedVisits = useMemo(() => {
+        return [...(customer.visits || [])]
+          .map((v, i) => ({ ...v, origIndex: i }))
+          .sort((a, b) => b.date - a.date);
+      }, [customer.visits]);
+
+      return (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+          <div className="w-full max-w-md rounded-t-3xl slide-up-panel max-h-[92vh] flex flex-col"
+            style={{ background: 'white', border: '3px solid #1f1f1f', borderBottom: 'none' }} onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 pb-2">
+              <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#f3f4f6' }}>
+                <ChevronLeft size={20} strokeWidth={3} />
+              </button>
+              <div className="text-center flex-1 px-2">
+                <h3 className="display text-xl font-bold leading-tight truncate" style={{ color: '#1f1f1f' }}>
+                  {customer.name || 'Πελάτης'}
+                </h3>
+                <p className="text-xs font-bold mt-0.5" style={{ color: '#6b7280' }}>
+                  {fmtPhone(phone)}
+                </p>
+              </div>
+              <div className="w-10"></div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 pb-5">
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="rounded-2xl p-3 text-center" style={{ background: '#fef3c7' }}>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{customer.totalCoffees || 0}</p>
+                  <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#92400e' }}>Σύνολο</p>
+                </div>
+                <div className="rounded-2xl p-3 text-center" style={{ background: '#fecaca' }}>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{customer.freeCoffees || 0}</p>
+                  <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#991b1b' }}>Δωρεάν</p>
+                </div>
+                <div className="rounded-2xl p-3 text-center" style={{ background: shop.color, color: shop.textColor, border: '2px solid #1f1f1f' }}>
+                  <p className="display text-2xl font-bold leading-none">{customer.stamps || 0}/6</p>
+                  <p className="text-[9px] uppercase font-bold mt-1">Σφραγίδες</p>
+                </div>
+              </div>
+
+              {customer.firstVisit && (
+                <div className="text-xs font-semibold mb-3 px-1" style={{ color: '#6b7280' }}>
+                  <Calendar size={12} className="inline mr-1" strokeWidth={3} />
+                  Πρώτη: <strong>{formatDate(customer.firstVisit)}</strong>
+                  {customer.lastVisit && customer.lastVisit !== customer.firstVisit && (
+                    <> · Τελευταία: <strong>{formatDate(customer.lastVisit)}</strong></>
+                  )}
+                </div>
+              )}
+
+              {/* Visit history */}
+              <div className="mb-4">
+                <p className="text-xs uppercase font-bold tracking-wider mb-2 px-1" style={{ color: '#6b7280' }}>
+                  Ιστορικό Επισκέψεων ({sortedVisits.length})
+                </p>
+                {sortedVisits.length === 0 ? (
+                  <p className="text-center py-6 text-sm font-semibold" style={{ color: '#9ca3af' }}>
+                    Δεν υπάρχει καταγεγραμμένο ιστορικό
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {sortedVisits.map((v) => (
+                      <div key={v.origIndex} className="flex items-center gap-2 p-2.5 rounded-xl"
+                        style={{ background: v.type === 'redemption' ? '#fef2f2' : '#f9fafb',
+                                 border: '1.5px solid', borderColor: v.type === 'redemption' ? '#fecaca' : '#e5e7eb' }}>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: v.type === 'redemption' ? '#dc2626' : '#16a34a' }}>
+                          {v.type === 'redemption'
+                            ? <Gift size={16} className="text-white" strokeWidth={3} />
+                            : <Coffee size={16} className="text-white" strokeWidth={3} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold" style={{ color: '#1f1f1f' }}>
+                            {v.type === 'redemption' ? '🎁 Δωρεάν Καφές' : '☕ Καφές'}
+                          </p>
+                          <p className="text-xs" style={{ color: '#6b7280' }}>
+                            {formatDate(v.date)} · {formatTime(v.date)}
+                          </p>
+                        </div>
+                        {confirmDeleteVisit === v.origIndex ? (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setConfirmDeleteVisit(null)}
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold"
+                              style={{ background: '#f3f4f6', color: '#6b7280' }}>
+                              Άκυρο
+                            </button>
+                            <button
+                              onClick={() => { onDeleteVisit(v.origIndex); setConfirmDeleteVisit(null); }}
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-white"
+                              style={{ background: '#dc2626' }}>
+                              Σβήσε
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteVisit(v.origIndex)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}
+                            title="Διαγραφή επίσκεψης">
+                            <XIcon size={14} strokeWidth={3} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2 pt-3" style={{ borderTop: '2px dashed #e5e7eb' }}>
+                <button onClick={onUse}
+                  className="w-full py-3 rounded-2xl btn-3d font-bold text-white display flex items-center justify-center gap-2"
+                  style={{ background: '#16a34a', border: '3px solid #1f1f1f', fontSize: '1rem' }}>
+                  <Coffee size={20} strokeWidth={3} /> Άνοιγμα στην εφαρμογή
+                </button>
+
+                {confirmDelete ? (
+                  <div className="rounded-2xl p-3" style={{ background: '#fef2f2', border: '2px solid #fecaca' }}>
+                    <p className="text-sm font-bold text-center mb-3" style={{ color: '#991b1b' }}>
+                      Σίγουρα διαγραφή του πελάτη και ΟΛΟΥ του ιστορικού;
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmDelete(false)}
+                        className="flex-1 py-2.5 rounded-xl font-bold"
+                        style={{ background: '#f3f4f6', color: '#6b7280' }}>
+                        Άκυρο
+                      </button>
+                      <button onClick={onDelete}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-white"
+                        style={{ background: '#dc2626' }}>
+                        Διαγραφή
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDelete(true)}
+                    className="w-full py-3 rounded-2xl font-bold flex items-center justify-center gap-2"
+                    style={{ background: '#fef2f2', color: '#991b1b', border: '2px solid #fecaca' }}>
+                    <XIcon size={18} strokeWidth={3} /> Διαγραφή Πελάτη
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
