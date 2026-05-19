@@ -688,22 +688,11 @@
         ...computeShopStats(data, s.id, period)
       })), [data, period]);
 
-      const totalCoffees = allShopStats.reduce((s, x) => s + x.coffees, 0);
-      const totalFree = allShopStats.reduce((s, x) => s + x.free, 0);
-      const uniqueCustomersAcrossShops = new Set();
-      const start = periodStart(period);
-      SHOPS.forEach(s => {
-        const customers = data.shops[s.id] || {};
-        Object.entries(customers).forEach(([phone, c]) => {
-          if (period === 'all') {
-            if ((c.totalCoffees || 0) > 0) uniqueCustomersAcrossShops.add(phone);
-          } else {
-            if ((c.visits || []).some(v => v.date >= start)) uniqueCustomersAcrossShops.add(phone);
-          }
-        });
-      });
-      const totalCustomers = uniqueCustomersAcrossShops.size;
+      // Current shop stats (for the top widgets)
+      const currentShopStats = allShopStats.find(s => s.shop.id === currentShop.id) || { coffees: 0, free: 0, customers: 0 };
       const maxBarValue = Math.max(...allShopStats.map(s => s.coffees), 1);
+
+      const start = periodStart(period);
 
       // Customer list (current shop) - sort by activity in period
       const currentShopCustomers = useMemo(() => {
@@ -762,18 +751,21 @@
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 pb-5">
-              {/* Totals across shops */}
+              {/* Current shop stats - top widgets */}
+              <p className="text-[10px] uppercase font-bold tracking-wider mb-2 px-1" style={{ color: '#6b7280' }}>
+                Το κατάστημά σου · {currentShop.name}
+              </p>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <div className="rounded-2xl p-3 text-center" style={{ background: '#fef3c7' }}>
-                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{totalCoffees}</p>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{currentShopStats.coffees}</p>
                   <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#92400e' }}>Καφέδες</p>
                 </div>
                 <div className="rounded-2xl p-3 text-center" style={{ background: '#fecaca' }}>
-                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{totalFree}</p>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{currentShopStats.free}</p>
                   <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#991b1b' }}>Δωρεάν</p>
                 </div>
                 <div className="rounded-2xl p-3 text-center" style={{ background: '#dcfce7' }}>
-                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{totalCustomers}</p>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{currentShopStats.customers}</p>
                   <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#166534' }}>Πελάτες</p>
                 </div>
               </div>
@@ -781,7 +773,7 @@
               {/* Per-shop bar chart */}
               <div className="rounded-2xl p-4 mb-4" style={{ background: '#f9fafb', border: '2px solid #e5e7eb' }}>
                 <p className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: '#6b7280' }}>
-                  Πωλήσεις ανά κατάστημα
+                  Σύγκριση όλων των καταστημάτων
                 </p>
                 <div className="space-y-3">
                   {allShopStats.map((s, i) => (
