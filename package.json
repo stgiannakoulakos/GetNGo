@@ -1,0 +1,10 @@
+{
+  "name": "getandgo-loyalty",
+  "version": "1.0.0",
+  "description": "Get & Go Coffee Loyalty Card",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^9.0.0"
+  }
+}
