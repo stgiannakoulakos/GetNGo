@@ -56,10 +56,7 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5), 0 6px 0 rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.2); }
       50% { box-shadow: 0 0 0 16px rgba(220, 38, 38, 0), 0 6px 0 rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.2); }
     }
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     @keyframes sparkleFly {
       0% { transform: translate(0, 0) scale(0) rotate(0); opacity: 0; }
       20% { opacity: 1; }
@@ -72,10 +69,8 @@
       100% { transform: scale(1) translateY(0); opacity: 1; }
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-5px); }
-    }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes growBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
     .pop { animation: pop 0.5s cubic-bezier(.68,-0.55,.27,1.55); }
     .wiggle { animation: wiggle 0.4s ease-in-out; }
@@ -85,6 +80,7 @@
     .fade-in { animation: fadeIn 0.3s ease-out; }
     .bounce-in { animation: bounceIn 0.5s ease-out backwards; }
     .float { animation: float 3s ease-in-out infinite; }
+    .grow-bar { transform-origin: left; animation: growBar 0.6s ease-out backwards; }
 
     input { font-family: inherit; }
     input:focus { outline: none; }
@@ -111,44 +107,20 @@
   </div>
 
   <script type="text/babel" data-presets="react">
-    const { useState, useEffect, useRef, useCallback } = React;
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     const STAMPS_FOR_FREE = 6;
-    const LOCAL_DATA_KEY = 'getandgo_data_v2';
+    const LOCAL_DATA_KEY = 'getandgo_data_v3';
     const LOCAL_SHOP_KEY = 'getandgo_currentShop';
     const API_URL = '/api/customers';
+    const DATA_VERSION = 3;
 
-    // === SHOPS DEFINITION ===
+    // === SHOPS ===
     const SHOPS = [
-      {
-        id: 'stratou',
-        name: 'Στρατού',
-        address: 'Λεωφ. Στρατού 23',
-        city: 'Θεσσαλονίκη 546 39',
-        color: '#dc2626',      // brand red
-        colorDark: '#991b1b',
-        textColor: 'white'
-      },
-      {
-        id: 'martiou',
-        name: '25ης Μαρτίου',
-        address: '25ης Μαρτίου 110',
-        city: 'Θεσσαλονίκη 542 49',
-        color: '#3b9cd9',      // brand blue (bag)
-        colorDark: '#1e6ba8',
-        textColor: 'white'
-      },
-      {
-        id: 'olgas',
-        name: 'Β. Όλγας',
-        address: 'Λεωφ. Βασιλίσσης Όλγας 228',
-        city: 'Καλαμαριά 551 33',
-        color: '#f59e0b',      // brand orange (cup)
-        colorDark: '#b45309',
-        textColor: '#1f1f1f'
-      }
+      { id: 'stratou',  name: 'Στρατού',       address: 'Λεωφ. Στρατού 23',           city: 'Θεσσαλονίκη 546 39', color: '#dc2626', colorDark: '#991b1b', textColor: 'white' },
+      { id: 'martiou',  name: '25ης Μαρτίου',   address: '25ης Μαρτίου 110',           city: 'Θεσσαλονίκη 542 49', color: '#3b9cd9', colorDark: '#1e6ba8', textColor: 'white' },
+      { id: 'olgas',    name: 'Β. Όλγας',       address: 'Λεωφ. Βασιλίσσης Όλγας 228', city: 'Καλαμαριά 551 33',   color: '#f59e0b', colorDark: '#b45309', textColor: '#1f1f1f' }
     ];
-
     const getShop = (id) => SHOPS.find(s => s.id === id);
 
     // === ICONS ===
@@ -164,6 +136,7 @@
     const Coffee = (p) => <I {...p}><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></I>;
     const Gift = (p) => <I {...p}><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 12 4.5 12 8c0-3.5 2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/></I>;
     const Users = (p) => <I {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></I>;
+    const BarChart = (p) => <I {...p}><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></I>;
     const ChevronLeft = (p) => <I {...p}><polyline points="15 18 9 12 15 6"/></I>;
     const ChevronRight = (p) => <I {...p}><polyline points="9 18 15 12 9 6"/></I>;
     const Search = (p) => <I {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></I>;
@@ -172,19 +145,37 @@
     const CloudOff = (p) => <I {...p}><path d="M2 2l20 20"/><path d="M5.7 5.7C2.5 6.4 1 9 1 11.5a5.5 5.5 0 0 0 5.5 5.5h11"/><path d="M22 16c0-2-1.5-3.5-3.5-3.5h-1.04A7 7 0 0 0 9.1 7"/></I>;
     const CloudCheck = (p) => <I {...p}><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="9 13 11 15 15 11"/></I>;
     const MapPin = (p) => <I {...p}><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></I>;
-    const Store = (p) => <I {...p}><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-2.59-2A2.7 2.7 0 0 1 14.82 12v0a2.7 2.7 0 0 1-2.59-2A2.7 2.7 0 0 1 9.64 12v0a2.7 2.7 0 0 1-2.59-2A2.7 2.7 0 0 1 4.46 12v0a2 2 0 0 1-2-2V7"/></I>;
+    const Calendar = (p) => <I {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></I>;
 
-    // === STORAGE ===
+    // === HELPERS ===
     const defaultData = () => ({
-      shops: { stratou: {}, martiou: {}, olgas: {} }
+      version: DATA_VERSION,
+      shops: { stratou: {}, martiou: {}, olgas: {} },
+      monthlyStats: {}
     });
+
+    const migrateData = (data) => {
+      if (!data || !data.shops) return defaultData();
+      const out = { ...data };
+      if (!out.monthlyStats) out.monthlyStats = {};
+      if (!out.shops.stratou) out.shops.stratou = {};
+      if (!out.shops.martiou) out.shops.martiou = {};
+      if (!out.shops.olgas)   out.shops.olgas = {};
+      // Add visits[] to each customer if missing
+      Object.values(out.shops).forEach(shopCustomers => {
+        Object.values(shopCustomers).forEach(c => {
+          if (!Array.isArray(c.visits)) c.visits = [];
+        });
+      });
+      out.version = DATA_VERSION;
+      return out;
+    };
 
     const loadLocal = () => {
       try {
         const raw = localStorage.getItem(LOCAL_DATA_KEY);
         const parsed = raw ? JSON.parse(raw) : null;
-        if (parsed && parsed.shops) return parsed;
-        return defaultData();
+        return migrateData(parsed);
       } catch { return defaultData(); }
     };
     const saveLocal = (data) => {
@@ -206,12 +197,23 @@
       return await r.json();
     };
 
+    const fmtPhone = (p) => {
+      if (!p) return '';
+      if (p.length <= 3) return p;
+      if (p.length <= 6) return `${p.slice(0,3)} ${p.slice(3)}`;
+      return `${p.slice(0,3)} ${p.slice(3,6)} ${p.slice(6,10)}`;
+    };
+
+    const monthKey = (ts) => {
+      const d = new Date(ts);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
+    };
+
     // === SHOP PICKER ===
     function ShopPicker({ onSelect }) {
       return (
         <div className="min-h-screen flex flex-col items-center px-5 py-8" style={{ minHeight: '100dvh' }}>
           <img src="logo.png" alt="Get & Go" className="max-w-xs w-full mb-6 float" style={{ filter: 'drop-shadow(0 6px 0 rgba(0,0,0,0.15))' }} />
-
           <div className="text-center mb-6">
             <h1 className="display text-3xl font-bold mb-1" style={{ color: '#1f1f1f', textShadow: '2px 2px 0 rgba(255,255,255,0.4)' }}>
               Διάλεξε κατάστημα
@@ -220,19 +222,13 @@
               Επίλεξε σε ποιο εργάζεσαι
             </p>
           </div>
-
           <div className="w-full max-w-md space-y-4">
             {SHOPS.map((shop, idx) => (
               <button
                 key={shop.id}
                 onClick={() => onSelect(shop.id)}
                 className="w-full rounded-3xl p-5 text-left shop-card bounce-in flex items-center gap-4"
-                style={{
-                  background: shop.color,
-                  border: '3px solid #1f1f1f',
-                  color: shop.textColor,
-                  animationDelay: `${idx * 0.1}s`
-                }}
+                style={{ background: shop.color, border: '3px solid #1f1f1f', color: shop.textColor, animationDelay: `${idx * 0.1}s` }}
               >
                 <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.25)', border: `2px solid ${shop.textColor === 'white' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.2)'}` }}>
                   <MapPin size={26} strokeWidth={2.5} />
@@ -248,7 +244,6 @@
               </button>
             ))}
           </div>
-
           <div className="mt-8 text-center text-xs font-bold opacity-50" style={{ color: '#1f1f1f' }}>
             Get & Go Loyalty Program
           </div>
@@ -256,11 +251,99 @@
       );
     }
 
+    // === WELCOME MODAL ===
+    function WelcomeModal({ shop, onConfirm, onChangeShop }) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          {[...Array(8)].map((_, i) => {
+            const angle = (i / 8) * Math.PI * 2;
+            const dist = 140 + (i % 3) * 30;
+            return (
+              <Sparkles key={i} size={20 + (i % 3) * 6} className="absolute pointer-events-none"
+                style={{ color: ['#fbbf24', '#f97316', '#fde047'][i % 3], top: '50%', left: '50%',
+                  '--tx': `${Math.cos(angle) * dist}px`, '--ty': `${Math.sin(angle) * dist}px`,
+                  animation: `sparkleFly 1.8s ${i * 0.05}s ease-out forwards` }} />
+            );
+          })}
+          <div className="rounded-3xl p-7 max-w-sm w-full text-center pop relative" style={{ background: 'white', border: '4px solid #1f1f1f', boxShadow: '0 10px 0 rgba(0,0,0,0.3)' }}>
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-3 wiggle"
+              style={{ background: shop.color, border: '3px solid #1f1f1f' }}>
+              <MapPin size={40} style={{ color: shop.textColor }} strokeWidth={2.5} />
+            </div>
+            <p className="text-sm font-bold uppercase tracking-wider mb-1" style={{ color: shop.color }}>
+              Επέλεξες
+            </p>
+            <h2 className="display text-3xl font-bold mb-2" style={{ color: '#1f1f1f' }}>{shop.name}</h2>
+            <p className="text-sm font-semibold leading-tight" style={{ color: '#6b7280' }}>{shop.address}</p>
+            <p className="text-xs font-semibold mb-5" style={{ color: '#9ca3af' }}>{shop.city}</p>
+            <button onClick={onConfirm}
+              className="w-full py-4 rounded-2xl font-bold text-white btn-3d display"
+              style={{ background: '#16a34a', border: '3px solid #1f1f1f', fontSize: '1.2rem' }}>
+              <Check size={22} className="inline mr-2" strokeWidth={4} />
+              Έναρξη Βάρδιας
+            </button>
+            <button onClick={onChangeShop} className="w-full mt-2 py-2.5 text-sm font-bold" style={{ color: '#6b7280' }}>
+              ‹ Άλλαξα γνώμη
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // === PERIOD HELPER ===
+    const PERIODS = [
+      { id: 'today',  label: 'Σήμερα'   },
+      { id: 'week',   label: 'Εβδομάδα' },
+      { id: 'month',  label: 'Μήνας'    },
+      { id: 'year',   label: 'Έτος'     },
+      { id: 'all',    label: 'Όλα'      }
+    ];
+
+    const periodStart = (period) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      if (period === 'today') return d.getTime();
+      if (period === 'week')  { d.setDate(d.getDate() - 6); return d.getTime(); }
+      if (period === 'month') { d.setDate(1); return d.getTime(); }
+      if (period === 'year')  { d.setMonth(0, 1); return d.getTime(); }
+      return 0; // 'all'
+    };
+
+    // Compute stats for a shop in a period
+    const computeShopStats = (data, shopId, period) => {
+      const customers = data.shops[shopId] || {};
+      const start = periodStart(period);
+      let coffees = 0, free = 0;
+      const uniquePhones = new Set();
+
+      if (period === 'all') {
+        // Use lifetime totals
+        Object.entries(customers).forEach(([phone, c]) => {
+          coffees += c.totalCoffees || 0;
+          free += c.freeCoffees || 0;
+          if ((c.totalCoffees || 0) > 0) uniquePhones.add(phone);
+        });
+      } else {
+        // Walk visits within period
+        Object.entries(customers).forEach(([phone, c]) => {
+          (c.visits || []).forEach(v => {
+            if (v.date >= start) {
+              uniquePhones.add(phone);
+              if (v.type === 'purchase') coffees++;
+              if (v.type === 'redemption') free++;
+            }
+          });
+        });
+      }
+      return { coffees, free, customers: uniquePhones.size };
+    };
+
     // === MAIN APP ===
     function MainApp({ shop, data, setData, syncStatus, save, onChangeShop }) {
       const [phone, setPhone] = useState('');
       const [name, setName] = useState('');
-      const [showCustomers, setShowCustomers] = useState(false);
+      const [showPanel, setShowPanel] = useState(false);
+      const [panelPeriod, setPanelPeriod] = useState('month');
       const [showRedeem, setShowRedeem] = useState(false);
       const [flash, setFlash] = useState(null);
       const [stampedJustNow, setStampedJustNow] = useState(false);
@@ -276,11 +359,8 @@
         else setName('');
       }, [clean, shop.id]);
 
-      // Reset phone/name when shop changes
       useEffect(() => {
-        setPhone('');
-        setName('');
-        setShowCustomers(false);
+        setPhone(''); setName(''); setShowPanel(false);
       }, [shop.id]);
 
       const showFlash = (type) => {
@@ -288,18 +368,26 @@
         setTimeout(() => setFlash(null), 1200);
       };
 
-      const saveCustomers = (newCustomers) => {
-        const newData = {
-          ...data,
-          shops: { ...data.shops, [shop.id]: newCustomers }
-        };
+      const updateMonthlyStats = (newData, shopId, type) => {
+        const mk = monthKey(Date.now());
+        if (!newData.monthlyStats[mk]) newData.monthlyStats[mk] = {};
+        if (!newData.monthlyStats[mk][shopId]) newData.monthlyStats[mk][shopId] = { coffees: 0, free: 0 };
+        if (type === 'purchase') newData.monthlyStats[mk][shopId].coffees++;
+        if (type === 'redemption') newData.monthlyStats[mk][shopId].free++;
+        if (type === 'undo-purchase') newData.monthlyStats[mk][shopId].coffees = Math.max(0, newData.monthlyStats[mk][shopId].coffees - 1);
+        if (type === 'undo-redemption') newData.monthlyStats[mk][shopId].free = Math.max(0, newData.monthlyStats[mk][shopId].free - 1);
+      };
+
+      const saveCustomerInShop = (newCustomers, monthlyOp) => {
+        const newData = { ...data, shops: { ...data.shops, [shop.id]: newCustomers }, monthlyStats: { ...data.monthlyStats } };
+        if (monthlyOp) updateMonthlyStats(newData, shop.id, monthlyOp);
         save(newData);
       };
 
       const addCoffee = () => {
         if (!valid) { phoneRef.current && phoneRef.current.focus(); return; }
         const now = Date.now();
-        const ex = customers[clean] || { stamps: 0, totalCoffees: 0, freeCoffees: 0, firstVisit: now, name: '' };
+        const ex = customers[clean] || { stamps: 0, totalCoffees: 0, freeCoffees: 0, firstVisit: now, name: '', visits: [] };
         const newStamps = ex.stamps + 1;
         const updated = {
           ...ex,
@@ -307,9 +395,10 @@
           stamps: newStamps,
           totalCoffees: ex.totalCoffees + 1,
           lastVisit: now,
+          visits: [...(ex.visits || []), { date: now, type: 'purchase' }],
           lastAction: { type: 'add', date: now }
         };
-        saveCustomers({ ...customers, [clean]: updated });
+        saveCustomerInShop({ ...customers, [clean]: updated }, 'purchase');
         setStampedJustNow(true);
         setTimeout(() => setStampedJustNow(false), 600);
         if (newStamps >= STAMPS_FOR_FREE) {
@@ -327,9 +416,10 @@
           stamps: 0,
           freeCoffees: customer.freeCoffees + 1,
           lastVisit: now,
+          visits: [...(customer.visits || []), { date: now, type: 'redemption' }],
           lastAction: { type: 'redeem', date: now }
         };
-        saveCustomers({ ...customers, [clean]: updated });
+        saveCustomerInShop({ ...customers, [clean]: updated }, 'redemption');
         setShowRedeem(false);
         showFlash('redeemed');
       };
@@ -338,34 +428,40 @@
         if (!customer || !customer.lastAction) return;
         const la = customer.lastAction;
         let updated = { ...customer, lastAction: null };
+        let monthlyOp = null;
         if (la.type === 'add') {
           updated.stamps = Math.max(0, customer.stamps - 1);
           updated.totalCoffees = Math.max(0, customer.totalCoffees - 1);
+          // Remove last visit (if it was the purchase we're undoing)
+          const visits = [...(customer.visits || [])];
+          if (visits.length && visits[visits.length-1].type === 'purchase') visits.pop();
+          updated.visits = visits;
+          monthlyOp = 'undo-purchase';
         } else if (la.type === 'redeem') {
           updated.stamps = STAMPS_FOR_FREE;
           updated.freeCoffees = Math.max(0, customer.freeCoffees - 1);
+          const visits = [...(customer.visits || [])];
+          if (visits.length && visits[visits.length-1].type === 'redemption') visits.pop();
+          updated.visits = visits;
+          monthlyOp = 'undo-redemption';
         }
-        saveCustomers({ ...customers, [clean]: updated });
+        saveCustomerInShop({ ...customers, [clean]: updated }, monthlyOp);
         showFlash('undone');
       };
 
       const updateName = (n) => {
         setName(n);
-        if (customer) saveCustomers({ ...customers, [clean]: { ...customer, name: n } });
+        if (customer) saveCustomerInShop({ ...customers, [clean]: { ...customer, name: n } }, null);
       };
 
-      const fmt = (p) => {
-        if (!p) return '';
-        if (p.length <= 3) return p;
-        if (p.length <= 6) return `${p.slice(0,3)} ${p.slice(3)}`;
-        return `${p.slice(0,3)} ${p.slice(3,6)} ${p.slice(6,10)}`;
-      };
+      // Customer's current month visits
+      const customerThisMonth = useMemo(() => {
+        if (!customer) return 0;
+        const start = periodStart('month');
+        return (customer.visits || []).filter(v => v.date >= start && v.type === 'purchase').length;
+      }, [customer]);
 
-      const allCustomers = Object.entries(customers)
-        .map(([p, c]) => ({ phone: p, ...c }))
-        .sort((a, b) => (b.lastVisit || 0) - (a.lastVisit || 0));
-      const totalCoffees = allCustomers.reduce((s, c) => s + (c.totalCoffees || 0), 0);
-      const totalFree = allCustomers.reduce((s, c) => s + (c.freeCoffees || 0), 0);
+      const allCustomersList = useMemo(() => Object.entries(customers).map(([p, c]) => ({ phone: p, ...c })), [customers]);
 
       return (
         <div className="min-h-screen" style={{ minHeight: '100dvh' }}>
@@ -385,29 +481,22 @@
               </div>
             </div>
 
-            {/* Header: logo + shop badge + actions */}
+            {/* Header */}
             <div className="mb-3">
               <div className="flex items-center justify-between gap-3 mb-2">
                 <img src="logo.png" alt="Get & Go" className="h-12 w-auto flex-shrink-0" style={{ filter: 'drop-shadow(0 3px 0 rgba(0,0,0,0.15))' }} />
                 <button
-                  onClick={() => setShowCustomers(true)}
+                  onClick={() => setShowPanel(true)}
                   className="w-12 h-12 rounded-2xl flex items-center justify-center btn-3d flex-shrink-0"
                   style={{ background: 'white', border: '3px solid #1f1f1f' }}
-                  title="Πελάτες"
+                  title="Στατιστικά & Πελάτες"
                 >
-                  <Users size={20} style={{ color: '#dc2626' }} strokeWidth={3} />
+                  <BarChart size={20} style={{ color: '#dc2626' }} strokeWidth={3} />
                 </button>
               </div>
-              {/* Shop badge */}
-              <button
-                onClick={onChangeShop}
+              <button onClick={onChangeShop}
                 className="w-full rounded-2xl px-4 py-2.5 flex items-center justify-between gap-2 btn-3d"
-                style={{
-                  background: shop.color,
-                  border: '3px solid #1f1f1f',
-                  color: shop.textColor
-                }}
-              >
+                style={{ background: shop.color, border: '3px solid #1f1f1f', color: shop.textColor }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <MapPin size={18} strokeWidth={3} className="flex-shrink-0" />
                   <div className="text-left min-w-0">
@@ -417,9 +506,7 @@
                     <div className="text-[10px] font-bold opacity-80 truncate">{shop.address}</div>
                   </div>
                 </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 flex-shrink-0">
-                  Αλλαγή ›
-                </div>
+                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 flex-shrink-0">Αλλαγή ›</div>
               </button>
             </div>
 
@@ -429,24 +516,15 @@
                 📱 Αριθμός Κινητού
               </label>
               <div className="relative mb-4">
-                <input
-                  ref={phoneRef}
-                  type="tel"
-                  inputMode="numeric"
-                  value={fmt(clean)}
+                <input ref={phoneRef} type="tel" inputMode="numeric" value={fmtPhone(clean)}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="69_ ___ ____"
-                  maxLength={12}
-                  autoFocus
+                  placeholder="69_ ___ ____" maxLength={12} autoFocus
                   className="w-full text-3xl font-bold display px-4 py-3 rounded-2xl tracking-wider"
-                  style={{ background: '#fef3c7', color: '#1f1f1f', border: '3px solid #1f1f1f' }}
-                />
+                  style={{ background: '#fef3c7', color: '#1f1f1f', border: '3px solid #1f1f1f' }} />
                 {phone && (
-                  <button
-                    onClick={() => { setPhone(''); setName(''); phoneRef.current && phoneRef.current.focus(); }}
+                  <button onClick={() => { setPhone(''); setName(''); phoneRef.current && phoneRef.current.focus(); }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center"
-                    style={{ background: '#1f1f1f', color: 'white' }}
-                  >
+                    style={{ background: '#1f1f1f', color: 'white' }}>
                     <XIcon size={16} strokeWidth={3} />
                   </button>
                 )}
@@ -454,14 +532,10 @@
 
               {valid ? (
                 <>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => updateName(e.target.value)}
+                  <input type="text" value={name} onChange={(e) => updateName(e.target.value)}
                     placeholder={customer ? '+ προσθήκη ονόματος' : '+ όνομα (προαιρετικό)'}
                     className="w-full text-sm font-semibold bg-transparent mb-4 pb-1 px-2"
-                    style={{ color: '#1f1f1f', borderBottom: '2px dashed #d4d4d4' }}
-                  />
+                    style={{ color: '#1f1f1f', borderBottom: '2px dashed #d4d4d4' }} />
 
                   <div className="mb-5">
                     <div className="flex items-center justify-between mb-2">
@@ -475,15 +549,10 @@
                         const filled = i < ((customer && customer.stamps) || 0);
                         const isNew = stampedJustNow && i === ((customer && customer.stamps) || 0) - 1;
                         return (
-                          <div
-                            key={i}
-                            className={`aspect-square rounded-full flex items-center justify-center ${isNew ? 'pop' : ''}`}
-                            style={{
-                              background: filled ? shop.color : '#f3f4f6',
+                          <div key={i} className={`aspect-square rounded-full flex items-center justify-center ${isNew ? 'pop' : ''}`}
+                            style={{ background: filled ? shop.color : '#f3f4f6',
                               border: filled ? '3px solid #1f1f1f' : '3px dashed #d4d4d4',
-                              boxShadow: filled ? '0 3px 0 rgba(0,0,0,0.2)' : 'none'
-                            }}
-                          >
+                              boxShadow: filled ? '0 3px 0 rgba(0,0,0,0.2)' : 'none' }}>
                             {filled && <Coffee size={16} style={{ color: shop.textColor }} strokeWidth={3} />}
                           </div>
                         );
@@ -492,45 +561,41 @@
                   </div>
 
                   {(customer && customer.stamps >= STAMPS_FOR_FREE) ? (
-                    <button
-                      onClick={() => setShowRedeem(true)}
+                    <button onClick={() => setShowRedeem(true)}
                       className="w-full py-6 rounded-2xl pulse-ring flex items-center justify-center gap-3 text-white font-bold display"
-                      style={{ background: '#dc2626', border: '3px solid #1f1f1f', fontSize: '1.4rem' }}
-                    >
-                      <Gift size={28} strokeWidth={3} />
-                      ΔΩΡΕΑΝ ΚΑΦΕΣ!
+                      style={{ background: '#dc2626', border: '3px solid #1f1f1f', fontSize: '1.4rem' }}>
+                      <Gift size={28} strokeWidth={3} /> ΔΩΡΕΑΝ ΚΑΦΕΣ!
                     </button>
                   ) : (
-                    <button
-                      onClick={addCoffee}
+                    <button onClick={addCoffee}
                       className="w-full py-6 rounded-2xl btn-3d flex items-center justify-center gap-3 text-white font-bold display"
-                      style={{ background: '#16a34a', border: '3px solid #1f1f1f', fontSize: '1.5rem' }}
-                    >
-                      <Check size={32} strokeWidth={4} />
-                      ΚΑΦΕΣ
+                      style={{ background: '#16a34a', border: '3px solid #1f1f1f', fontSize: '1.5rem' }}>
+                      <Check size={32} strokeWidth={4} /> ΚΑΦΕΣ
                     </button>
                   )}
 
                   {customer && customer.lastAction && (
-                    <button
-                      onClick={undo}
-                      className="mt-3 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold"
-                      style={{ background: '#fef3c7', color: '#92400e', border: '2px solid #fbbf24' }}
-                    >
-                      <XIcon size={16} strokeWidth={3} />
-                      Αναίρεση τελευταίου
+                    <button onClick={undo} className="mt-3 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold"
+                      style={{ background: '#fef3c7', color: '#92400e', border: '2px solid #fbbf24' }}>
+                      <XIcon size={16} strokeWidth={3} /> Αναίρεση τελευταίου
                     </button>
                   )}
 
                   {customer && (customer.totalCoffees > 0 || customer.freeCoffees > 0) && (
-                    <div className="flex justify-around mt-4 pt-4" style={{ borderTop: '2px dashed #e5e7eb' }}>
-                      <div className="text-center">
-                        <p className="display text-xl font-bold" style={{ color: '#1f1f1f' }}>{customer.totalCoffees}</p>
-                        <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#6b7280' }}>Σύνολο</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="display text-xl font-bold" style={{ color: '#dc2626' }}>{customer.freeCoffees}</p>
-                        <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#dc2626' }}>Δωρεάν</p>
+                    <div className="mt-4 pt-4" style={{ borderTop: '2px dashed #e5e7eb' }}>
+                      <div className="flex justify-around mb-2">
+                        <div className="text-center">
+                          <p className="display text-xl font-bold" style={{ color: '#1f1f1f' }}>{customer.totalCoffees}</p>
+                          <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#6b7280' }}>Σύνολο</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="display text-xl font-bold" style={{ color: '#dc2626' }}>{customer.freeCoffees}</p>
+                          <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: '#dc2626' }}>Δωρεάν</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="display text-xl font-bold" style={{ color: shop.color }}>{customerThisMonth}</p>
+                          <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: shop.color }}>Αυτός ο μήνας</p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -543,24 +608,18 @@
               )}
             </div>
 
-            {allCustomers.length > 0 && (
+            {allCustomersList.length > 0 && (
               <div className="text-center text-xs font-bold" style={{ color: 'rgba(0,0,0,0.5)' }}>
-                {allCustomers.length} πελάτες · {totalCoffees} καφέδες · {totalFree} δωρεάν στο κατάστημα
+                {allCustomersList.length} πελάτες στο κατάστημα
               </div>
             )}
 
             {/* Flash */}
             {flash && (
               <div className="fixed top-1/2 left-1/2 z-40 flash-in pointer-events-none" style={{ transform: 'translate(-50%, -50%)' }}>
-                <div
-                  className="rounded-full flex items-center justify-center wiggle"
-                  style={{
-                    width: 140, height: 140,
-                    background: flash === 'added' ? '#16a34a' : flash === 'redeemed' ? '#dc2626' : '#fbbf24',
-                    border: '6px solid #1f1f1f',
-                    boxShadow: '0 10px 0 rgba(0,0,0,0.2)'
-                  }}
-                >
+                <div className="rounded-full flex items-center justify-center wiggle"
+                  style={{ width: 140, height: 140, background: flash === 'added' ? '#16a34a' : flash === 'redeemed' ? '#dc2626' : '#fbbf24',
+                    border: '6px solid #1f1f1f', boxShadow: '0 10px 0 rgba(0,0,0,0.2)' }}>
                   {flash === 'added' && <Check size={80} className="text-white" strokeWidth={5} />}
                   {flash === 'redeemed' && <Gift size={64} className="text-white" strokeWidth={3} />}
                   {flash === 'undone' && <XIcon size={80} style={{ color: '#1f1f1f' }} strokeWidth={5} />}
@@ -575,18 +634,10 @@
                   const angle = (i / 12) * Math.PI * 2;
                   const dist = 120 + (i % 3) * 40;
                   return (
-                    <Sparkles
-                      key={i}
-                      size={22 + (i % 3) * 8}
-                      className="absolute"
-                      style={{
-                        color: ['#fbbf24', '#f97316', '#fde047'][i % 3],
-                        top: '50%', left: '50%',
-                        '--tx': `${Math.cos(angle) * dist}px`,
-                        '--ty': `${Math.sin(angle) * dist}px`,
-                        animation: `sparkleFly 1.5s ${i * 0.05}s ease-out forwards`
-                      }}
-                    />
+                    <Sparkles key={i} size={22 + (i % 3) * 8} className="absolute"
+                      style={{ color: ['#fbbf24', '#f97316', '#fde047'][i % 3], top: '50%', left: '50%',
+                        '--tx': `${Math.cos(angle) * dist}px`, '--ty': `${Math.sin(angle) * dist}px`,
+                        animation: `sparkleFly 1.5s ${i * 0.05}s ease-out forwards` }} />
                   );
                 })}
                 <div className="rounded-3xl p-7 max-w-xs w-full text-center pop relative" style={{ background: 'white', border: '4px solid #1f1f1f', boxShadow: '0 10px 0 rgba(0,0,0,0.3)' }}>
@@ -597,9 +648,7 @@
                   <p className="text-sm font-semibold mb-1" style={{ color: '#6b7280' }}>
                     {customer.name ? <>Για τον/την <strong>{customer.name}</strong></> : 'Συμπληρώθηκαν οι 6 σφραγίδες'}
                   </p>
-                  <p className="text-xs font-bold mb-6" style={{ color: shop.color }}>
-                    📍 {shop.name}
-                  </p>
+                  <p className="text-xs font-bold mb-6" style={{ color: shop.color }}>📍 {shop.name}</p>
                   <div className="flex gap-2">
                     <button onClick={() => setShowRedeem(false)} className="flex-1 py-3 rounded-xl font-bold" style={{ background: '#f3f4f6', color: '#6b7280', border: '2px solid #d4d4d4' }}>
                       Αργότερα
@@ -612,74 +661,183 @@
               </div>
             )}
 
-            {/* Customers panel */}
-            {showCustomers && (
-              <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowCustomers(false)}>
-                <div className="w-full max-w-md rounded-t-3xl slide-up-panel max-h-[85vh] flex flex-col" style={{ background: 'white', border: '3px solid #1f1f1f', borderBottom: 'none' }} onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between p-5 pb-3">
-                    <button onClick={() => setShowCustomers(false)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#f3f4f6' }}>
-                      <ChevronLeft size={20} strokeWidth={3} />
-                    </button>
-                    <div className="text-center">
-                      <h3 className="display text-xl font-bold leading-none" style={{ color: '#1f1f1f' }}>Πελάτες</h3>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: shop.color }}>📍 {shop.name}</p>
-                    </div>
-                    <div className="w-10"></div>
-                  </div>
-                  <div className="px-5 pb-3 grid grid-cols-3 gap-2">
-                    <div className="rounded-xl p-2 text-center" style={{ background: '#fef3c7' }}>
-                      <p className="display text-lg font-bold" style={{ color: '#1f1f1f' }}>{allCustomers.length}</p>
-                      <p className="text-[9px] uppercase font-bold" style={{ color: '#92400e' }}>Πελάτες</p>
-                    </div>
-                    <div className="rounded-xl p-2 text-center" style={{ background: '#dcfce7' }}>
-                      <p className="display text-lg font-bold" style={{ color: '#1f1f1f' }}>{totalCoffees}</p>
-                      <p className="text-[9px] uppercase font-bold" style={{ color: '#166534' }}>Καφέδες</p>
-                    </div>
-                    <div className="rounded-xl p-2 text-center" style={{ background: '#fecaca' }}>
-                      <p className="display text-lg font-bold" style={{ color: '#1f1f1f' }}>{totalFree}</p>
-                      <p className="text-[9px] uppercase font-bold" style={{ color: '#991b1b' }}>Δωρεάν</p>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-3 pb-5">
-                    {allCustomers.length === 0 ? (
-                      <p className="text-center py-10 font-semibold" style={{ color: '#9ca3af' }}>
-                        Δεν υπάρχουν πελάτες ακόμη σε αυτό το κατάστημα
-                      </p>
-                    ) : (
-                      <div className="space-y-1">
-                        {allCustomers.map((c) => (
-                          <button
-                            key={c.phone}
-                            onClick={() => { setPhone(c.phone); setShowCustomers(false); }}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-yellow-50 transition-colors"
-                          >
-                            <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c.stamps >= STAMPS_FOR_FREE ? '#dc2626' : shop.color, border: '2px solid #1f1f1f' }}>
-                              {c.stamps >= STAMPS_FOR_FREE ? (
-                                <Gift size={20} className="text-white" strokeWidth={3} />
-                              ) : (
-                                <span className="display font-bold text-sm" style={{ color: shop.textColor }}>{c.stamps}/6</span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold truncate" style={{ color: '#1f1f1f' }}>
-                                {c.name || fmt(c.phone)}
-                              </p>
-                              {c.name && <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{fmt(c.phone)}</p>}
-                            </div>
-                            <div className="text-right">
-                              <p className="display font-bold text-base" style={{ color: '#1f1f1f' }}>☕ {c.totalCoffees}</p>
-                              {c.freeCoffees > 0 && (
-                                <p className="text-[10px] font-bold" style={{ color: '#dc2626' }}>🎁 {c.freeCoffees} δωρεάν</p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            {/* Stats & Customers panel */}
+            {showPanel && (
+              <StatsPanel data={data} currentShop={shop} period={panelPeriod} setPeriod={setPanelPeriod}
+                onClose={() => setShowPanel(false)} onSelectCustomer={(p) => { setPhone(p); setShowPanel(false); }} />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // === STATS PANEL ===
+    function StatsPanel({ data, currentShop, period, setPeriod, onClose, onSelectCustomer }) {
+      const allShopStats = useMemo(() => SHOPS.map(s => ({
+        shop: s,
+        ...computeShopStats(data, s.id, period)
+      })), [data, period]);
+
+      const totalCoffees = allShopStats.reduce((s, x) => s + x.coffees, 0);
+      const totalFree = allShopStats.reduce((s, x) => s + x.free, 0);
+      const uniqueCustomersAcrossShops = new Set();
+      const start = periodStart(period);
+      SHOPS.forEach(s => {
+        const customers = data.shops[s.id] || {};
+        Object.entries(customers).forEach(([phone, c]) => {
+          if (period === 'all') {
+            if ((c.totalCoffees || 0) > 0) uniqueCustomersAcrossShops.add(phone);
+          } else {
+            if ((c.visits || []).some(v => v.date >= start)) uniqueCustomersAcrossShops.add(phone);
+          }
+        });
+      });
+      const totalCustomers = uniqueCustomersAcrossShops.size;
+      const maxBarValue = Math.max(...allShopStats.map(s => s.coffees), 1);
+
+      // Customer list (current shop) - sort by activity in period
+      const currentShopCustomers = useMemo(() => {
+        const customers = data.shops[currentShop.id] || {};
+        const list = Object.entries(customers).map(([phone, c]) => {
+          let periodCoffees = c.totalCoffees || 0;
+          let periodFree = c.freeCoffees || 0;
+          if (period !== 'all') {
+            periodCoffees = (c.visits || []).filter(v => v.date >= start && v.type === 'purchase').length;
+            periodFree = (c.visits || []).filter(v => v.date >= start && v.type === 'redemption').length;
+          }
+          return { phone, ...c, periodCoffees, periodFree };
+        });
+        // Sort: customers active in period first, then by activity
+        if (period === 'all') list.sort((a, b) => (b.totalCoffees || 0) - (a.totalCoffees || 0));
+        else list.sort((a, b) => b.periodCoffees - a.periodCoffees);
+        return list;
+      }, [data, currentShop.id, period]);
+
+      const activeInPeriod = currentShopCustomers.filter(c => period === 'all' ? (c.totalCoffees || 0) > 0 : c.periodCoffees > 0 || c.periodFree > 0);
+      const displayList = period === 'all' ? currentShopCustomers : activeInPeriod;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
+          <div className="w-full max-w-md rounded-t-3xl slide-up-panel max-h-[90vh] flex flex-col"
+            style={{ background: 'white', border: '3px solid #1f1f1f', borderBottom: 'none' }} onClick={(e) => e.stopPropagation()}>
+
+            <div className="flex items-center justify-between p-4 pb-2">
+              <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#f3f4f6' }}>
+                <ChevronLeft size={20} strokeWidth={3} />
+              </button>
+              <div className="text-center">
+                <h3 className="display text-xl font-bold leading-none" style={{ color: '#1f1f1f' }}>Στατιστικά</h3>
+                <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: currentShop.color }}>
+                  📍 {currentShop.name}
+                </p>
+              </div>
+              <div className="w-10"></div>
+            </div>
+
+            {/* Period tabs */}
+            <div className="px-4 pb-3">
+              <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl" style={{ background: '#f3f4f6' }}>
+                {PERIODS.map(p => (
+                  <button key={p.id} onClick={() => setPeriod(p.id)}
+                    className="py-2 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      background: period === p.id ? 'white' : 'transparent',
+                      color: period === p.id ? '#1f1f1f' : '#6b7280',
+                      boxShadow: period === p.id ? '0 2px 6px rgba(0,0,0,0.08)' : 'none'
+                    }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 pb-5">
+              {/* Totals across shops */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="rounded-2xl p-3 text-center" style={{ background: '#fef3c7' }}>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{totalCoffees}</p>
+                  <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#92400e' }}>Καφέδες</p>
+                </div>
+                <div className="rounded-2xl p-3 text-center" style={{ background: '#fecaca' }}>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{totalFree}</p>
+                  <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#991b1b' }}>Δωρεάν</p>
+                </div>
+                <div className="rounded-2xl p-3 text-center" style={{ background: '#dcfce7' }}>
+                  <p className="display text-2xl font-bold leading-none" style={{ color: '#1f1f1f' }}>{totalCustomers}</p>
+                  <p className="text-[9px] uppercase font-bold mt-1" style={{ color: '#166534' }}>Πελάτες</p>
                 </div>
               </div>
-            )}
+
+              {/* Per-shop bar chart */}
+              <div className="rounded-2xl p-4 mb-4" style={{ background: '#f9fafb', border: '2px solid #e5e7eb' }}>
+                <p className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: '#6b7280' }}>
+                  Πωλήσεις ανά κατάστημα
+                </p>
+                <div className="space-y-3">
+                  {allShopStats.map((s, i) => (
+                    <div key={s.shop.id}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-bold" style={{ color: '#1f1f1f' }}>
+                          {s.shop.id === currentShop.id ? '▸ ' : '  '}{s.shop.name}
+                        </span>
+                        <span className="display text-base font-bold" style={{ color: '#1f1f1f' }}>
+                          {s.coffees}
+                          {s.free > 0 && <span className="text-xs font-bold ml-1" style={{ color: '#dc2626' }}>+{s.free}🎁</span>}
+                        </span>
+                      </div>
+                      <div className="h-4 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
+                        <div className="h-full rounded-full grow-bar"
+                          style={{ width: `${(s.coffees / maxBarValue) * 100}%`, background: s.shop.color, animationDelay: `${i * 0.1}s` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Customer list for current shop */}
+              <div className="flex items-center justify-between mb-2 px-1">
+                <p className="text-xs uppercase font-bold tracking-wider" style={{ color: '#6b7280' }}>
+                  Πελάτες — {currentShop.name}
+                </p>
+                <p className="text-xs font-bold" style={{ color: '#9ca3af' }}>
+                  {displayList.length} {period !== 'all' ? 'ενεργοί' : 'σύνολο'}
+                </p>
+              </div>
+
+              {displayList.length === 0 ? (
+                <p className="text-center py-8 text-sm font-semibold" style={{ color: '#9ca3af' }}>
+                  Δεν υπάρχουν {period !== 'all' ? 'ενεργοί πελάτες σε αυτή την περίοδο' : 'πελάτες ακόμη'}
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {displayList.map((c) => (
+                    <button key={c.phone} onClick={() => onSelectCustomer(c.phone)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-yellow-50 transition-colors">
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: c.stamps >= STAMPS_FOR_FREE ? '#dc2626' : currentShop.color, border: '2px solid #1f1f1f' }}>
+                        {c.stamps >= STAMPS_FOR_FREE ? (
+                          <Gift size={20} className="text-white" strokeWidth={3} />
+                        ) : (
+                          <span className="display font-bold text-sm" style={{ color: currentShop.textColor }}>{c.stamps}/6</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate" style={{ color: '#1f1f1f' }}>{c.name || fmtPhone(c.phone)}</p>
+                        {c.name && <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{fmtPhone(c.phone)}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="display font-bold text-base" style={{ color: '#1f1f1f' }}>☕ {period === 'all' ? c.totalCoffees : c.periodCoffees}</p>
+                        {((period === 'all' ? c.freeCoffees : c.periodFree) > 0) && (
+                          <p className="text-[10px] font-bold" style={{ color: '#dc2626' }}>
+                            🎁 {period === 'all' ? c.freeCoffees : c.periodFree} δωρεάν
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -689,11 +847,11 @@
     function App() {
       const [data, setData] = useState(defaultData());
       const [currentShopId, setCurrentShopId] = useState(null);
+      const [pendingShopId, setPendingShopId] = useState(null); // shop in welcome state
       const [bootState, setBootState] = useState('loading');
       const [syncStatus, setSyncStatus] = useState('idle');
       const saveQueueRef = useRef(null);
 
-      // Boot
       useEffect(() => {
         (async () => {
           const local = loadLocal();
@@ -702,14 +860,13 @@
 
           try {
             const remote = await fetchFromServer();
-            // Ensure structure
-            const merged = remote && remote.shops ? remote : local;
+            const merged = migrateData(remote || local);
             setData(merged);
             saveLocal(merged);
             setBootState('ready');
             setSyncStatus('synced');
           } catch {
-            setData(local);
+            setData(migrateData(local));
             setBootState('ready');
             setSyncStatus('offline');
           }
@@ -725,13 +882,10 @@
           try {
             await pushToServer(newData);
             setSyncStatus('synced');
-          } catch {
-            setSyncStatus('offline');
-          }
+          } catch { setSyncStatus('offline'); }
         }, 400);
       }, []);
 
-      // Retry on reconnect
       useEffect(() => {
         const onOnline = async () => {
           if (syncStatus === 'offline') {
@@ -746,13 +900,17 @@
         return () => window.removeEventListener('online', onOnline);
       }, [data, syncStatus]);
 
-      const selectShop = (id) => {
-        setCurrentShopId(id);
-        localStorage.setItem(LOCAL_SHOP_KEY, id);
+      const pickShop = (id) => setPendingShopId(id);
+
+      const confirmShop = () => {
+        setCurrentShopId(pendingShopId);
+        localStorage.setItem(LOCAL_SHOP_KEY, pendingShopId);
+        setPendingShopId(null);
       };
 
       const changeShop = () => {
         setCurrentShopId(null);
+        setPendingShopId(null);
         localStorage.removeItem(LOCAL_SHOP_KEY);
       };
 
@@ -765,8 +923,18 @@
         );
       }
 
+      if (pendingShopId) {
+        const shop = getShop(pendingShopId);
+        return (
+          <>
+            <ShopPicker onSelect={pickShop} />
+            <WelcomeModal shop={shop} onConfirm={confirmShop} onChangeShop={() => setPendingShopId(null)} />
+          </>
+        );
+      }
+
       if (!currentShopId) {
-        return <ShopPicker onSelect={selectShop} />;
+        return <ShopPicker onSelect={pickShop} />;
       }
 
       const shop = getShop(currentShopId);
